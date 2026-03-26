@@ -1,14 +1,14 @@
 NodeOUs:
   Enable: true
   ClientOUIdentifier:
-    Certificate: cacerts/localhost-9055-ca-bank2.pem
+    Certificate: cacerts/ca.bank2.example.com-cert.pem
     OrganizationalUnitIdentifier: client
   PeerOUIdentifier:
-    Certificate: cacerts/localhost-9055-ca-bank2.pem
+    Certificate: cacerts/ca.bank2.example.com-cert.pem
     OrganizationalUnitIdentifier: peer
   AdminOUIdentifier:
-    Certificate: cacerts/localhost-9055-ca-bank2.pem
+    Certificate: cacerts/ca.bank2.example.com-cert.pem
     OrganizationalUnitIdentifier: admin
   OrdererOUIdentifier:
-    Certificate: cacerts/localhost-9055-ca-bank2.pem
+    Certificate: cacerts/ca.bank2.example.com-cert.pem
     OrganizationalUnitIdentifier: orderer

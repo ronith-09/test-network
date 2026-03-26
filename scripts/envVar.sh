@@ -22,6 +22,7 @@ export ORDERER_CA=${TEST_NETWORK_HOME}/organizations/ordererOrganizations/exampl
 export PEER0_BETWEEN_CA=${TEST_NETWORK_HOME}/organizations/peerOrganizations/betweenorganization.example.com/tlsca/tlsca.betweenorganization.example.com-cert.pem
 export PEER0_BANK1_CA=${TEST_NETWORK_HOME}/organizations/peerOrganizations/bank1organization.example.com/tlsca/tlsca.bank1organization.example.com-cert.pem
 export PEER0_BANK2_CA=${TEST_NETWORK_HOME}/organizations/peerOrganizations/bank2.example.com/tlsca/tlsca.bank2.example.com-cert.pem
+export PEER0_BANKD_CA=${TEST_NETWORK_HOME}/organizations/peerOrganizations/bankd.example.com/tlsca/tlsca.bankd.example.com-cert.pem
 
 # Set environment variables for the peer org
 setGlobals() {
@@ -47,6 +48,11 @@ setGlobals() {
     export CORE_PEER_TLS_ROOTCERT_FILE=$PEER0_BANK2_CA
     export CORE_PEER_MSPCONFIGPATH=${TEST_NETWORK_HOME}/organizations/peerOrganizations/bank2.example.com/users/Admin@bank2.example.com/msp
     export CORE_PEER_ADDRESS=localhost:11051
+  elif [ $USING_ORG -eq 4 ]; then
+    export CORE_PEER_LOCALMSPID=BankDMSP
+    export CORE_PEER_TLS_ROOTCERT_FILE=$PEER0_BANKD_CA
+    export CORE_PEER_MSPCONFIGPATH=${TEST_NETWORK_HOME}/organizations/peerOrganizations/bankd.example.com/users/Admin@bankd.example.com/msp
+    export CORE_PEER_ADDRESS=localhost:12051
   else
     errorln "ORG Unknown"
   fi
@@ -74,7 +80,18 @@ parsePeerConnectionParameters() {
     fi
     PEER_CONN_PARMS=("${PEER_CONN_PARMS[@]}" --peerAddresses $CORE_PEER_ADDRESS)
     ## Set path to TLS certificate
-    CA=PEER0_ORG$1_CA
+    if [ "$1" -eq 1 ]; then
+      CA=PEER0_BETWEEN_CA
+    elif [ "$1" -eq 2 ]; then
+      CA=PEER0_BANK1_CA
+    elif [ "$1" -eq 3 ]; then
+      CA=PEER0_BANK2_CA
+    elif [ "$1" -eq 4 ]; then
+      CA=PEER0_BANKD_CA
+    else
+      errorln "ORG Unknown"
+      return 1
+    fi
     TLSINFO=(--tlsRootCertFiles "${!CA}")
     PEER_CONN_PARMS=("${PEER_CONN_PARMS[@]}" "${TLSINFO[@]}")
     # shift by one to get to the next organization

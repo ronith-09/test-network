@@ -1,0 +1,18 @@
+Organizations:
+  - &OrgDefinition
+    Name: __MSP_ID__
+    ID: __MSP_ID__
+    MSPDir: __MSP_DIR__
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('__MSP_ID__.admin', '__MSP_ID__.peer', '__MSP_ID__.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('__MSP_ID__.admin', '__MSP_ID__.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('__MSP_ID__.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('__MSP_ID__.peer')"

@@ -1,0 +1,10 @@
+PeerOrgs:
+  - Name: __ORG_NAME__
+    Domain: __DOMAIN__
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+      SANS:
+        - localhost
+    Users:
+      Count: 1

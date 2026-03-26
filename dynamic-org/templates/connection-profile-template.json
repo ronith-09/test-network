@@ -1,0 +1,46 @@
+{
+  "name": "__MSP_ID__-connection",
+  "version": "1.0.0",
+  "client": {
+    "organization": "__MSP_ID__",
+    "connection": {
+      "timeout": {
+        "peer": {
+          "endorser": "300"
+        }
+      }
+    }
+  },
+  "organizations": {
+    "__MSP_ID__": {
+      "mspid": "__MSP_ID__",
+      "peers": [
+        "__PEER_HOST__"
+      ]
+    }
+  },
+  "orderers": {
+    "orderer.example.com": {
+      "url": "grpcs://localhost:7050",
+      "tlsCACerts": {
+        "pem": "__ORDERER_PEM__"
+      },
+      "grpcOptions": {
+        "ssl-target-name-override": "orderer.example.com",
+        "hostnameOverride": "orderer.example.com"
+      }
+    }
+  },
+  "peers": {
+    "__PEER_HOST__": {
+      "url": "grpcs://localhost:__PEER_PORT__",
+      "tlsCACerts": {
+        "pem": "__PEER_PEM__"
+      },
+      "grpcOptions": {
+        "ssl-target-name-override": "__PEER_HOST__",
+        "hostnameOverride": "__PEER_HOST__"
+      }
+    }
+  }
+}

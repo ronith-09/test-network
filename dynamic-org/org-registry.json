@@ -1,0 +1,44 @@
+{
+  "organizations": [
+    {
+      "key": "between",
+      "displayName": "BetweenNetwork",
+      "mspId": "BetweenMSP",
+      "domain": "betweenorganization.example.com",
+      "peerHost": "peer0.betweenorganization.example.com",
+      "peerPort": 7051,
+      "operationsPort": 9444,
+      "active": true
+    },
+    {
+      "key": "bank1",
+      "displayName": "Bank1",
+      "mspId": "Bank1MSP",
+      "domain": "bank1organization.example.com",
+      "peerHost": "peer0.bank1organization.example.com",
+      "peerPort": 9051,
+      "operationsPort": 9445,
+      "active": true
+    },
+    {
+      "key": "bank2",
+      "displayName": "Bank2",
+      "mspId": "Bank2MSP",
+      "domain": "bank2.example.com",
+      "peerHost": "peer0.bank2.example.com",
+      "peerPort": 11051,
+      "operationsPort": 9447,
+      "active": true
+    },
+    {
+      "key": "bankd",
+      "displayName": "BankD",
+      "mspId": "BankDMSP",
+      "domain": "bankd.example.com",
+      "peerHost": "peer0.bankd.example.com",
+      "peerPort": 12051,
+      "operationsPort": 9448,
+      "active": true
+    }
+  ]
+}

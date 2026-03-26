@@ -8,6 +8,7 @@ volumes:
   peer0.betweenorganization.example.com:
   peer0.bank1organization.example.com:
   peer0.bank2.example.com:
+  peer0.bankd.example.com:
 
 networks:
   test:
@@ -162,5 +163,41 @@ services:
     ports:
       - 11051:11051
       - 9447:9447
+    networks:
+      - test
+
+  peer0.bankd.example.com:
+    container_name: peer0.bankd.example.com
+    image: hyperledger/fabric-peer:${IMAGE_TAG:-latest}
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=false
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer0.bankd.example.com
+      - CORE_PEER_ADDRESS=peer0.bankd.example.com:12051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:12051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.bankd.example.com:12052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:12052
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.bankd.example.com:12051
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.bankd.example.com:12051
+      - CORE_PEER_LOCALMSPID=BankDMSP
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      - CORE_OPERATIONS_LISTENADDRESS=peer0.bankd.example.com:9448
+      - CORE_METRICS_PROVIDER=prometheus
+    volumes:
+      - ./docker/peercfg:/etc/hyperledger/peercfg
+      - ../organizations/peerOrganizations/bankd.example.com/peers/peer0.bankd.example.com:/etc/hyperledger/fabric
+      - peer0.bankd.example.com:/var/hyperledger/production
+    working_dir: /root
+    command: peer node start
+    ports:
+      - 12051:12051
+      - 9448:9448
     networks:
       - test

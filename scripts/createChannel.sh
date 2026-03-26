@@ -82,6 +82,8 @@ joinChannel() {
     ORG_LABEL="Bank1"
   elif [ $ORG -eq 3 ]; then
     ORG_LABEL="Bank2"
+  elif [ $ORG -eq 4 ]; then
+    ORG_LABEL="BankD"
   fi
   local rc=1
   local COUNTER=1
@@ -136,6 +138,8 @@ infoln "Joining Bank1 peer to the channel..."
 joinChannel 2
 infoln "Joining Bank2 peer to the channel..."
 joinChannel 3
+infoln "Joining BankD peer to the channel..."
+joinChannel 4
 
 ## Set the anchor peers for each org in the channel
 if [ "${SKIP_ANCHOR_PEERS}" = "true" ]; then
@@ -147,6 +151,8 @@ else
   setAnchorPeer 2
   infoln "Setting anchor peer for Bank2..."
   setAnchorPeer 3
+  infoln "Setting anchor peer for BankD..."
+  setAnchorPeer 4
 fi
 
 successln "Channel '$CHANNEL_NAME' joined"

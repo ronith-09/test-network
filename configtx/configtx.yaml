@@ -102,6 +102,23 @@ Organizations:
       Endorsement:
         Type: Signature
         Rule: "OR('Bank2MSP.peer')"
+  - &BankDOrg
+    Name: BankDMSP
+    ID: BankDMSP
+    MSPDir: ../organizations/peerOrganizations/bankd.example.com/msp
+    Policies:
+      Readers:
+        Type: Signature
+        Rule: "OR('BankDMSP.admin', 'BankDMSP.peer', 'BankDMSP.client')"
+      Writers:
+        Type: Signature
+        Rule: "OR('BankDMSP.admin', 'BankDMSP.client')"
+      Admins:
+        Type: Signature
+        Rule: "OR('BankDMSP.admin')"
+      Endorsement:
+        Type: Signature
+        Rule: "OR('BankDMSP.peer')"
 ################################################################################
 #
 #   SECTION: Capabilities
@@ -291,4 +308,5 @@ Profiles:
         - *BetweenOrganization
         - *Bank1Organization
         - *Bank2Org
+        - *BankDOrg
       Capabilities: *ApplicationCapabilities

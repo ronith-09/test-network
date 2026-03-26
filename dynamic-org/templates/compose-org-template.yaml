@@ -1,0 +1,43 @@
+volumes:
+  __PEER_HOST__:
+
+networks:
+  test:
+    name: fabric_test
+
+services:
+  __PEER_HOST__:
+    container_name: __PEER_HOST__
+    image: hyperledger/fabric-peer:${IMAGE_TAG:-latest}
+    labels:
+      service: hyperledger-fabric
+    environment:
+      - FABRIC_CFG_PATH=/etc/hyperledger/peercfg
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=false
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=__PEER_HOST__
+      - CORE_PEER_ADDRESS=__PEER_HOST__:__PEER_PORT__
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:__PEER_PORT__
+      - CORE_PEER_CHAINCODEADDRESS=__PEER_HOST__:__CHAINCODE_PORT__
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:__CHAINCODE_PORT__
+      - CORE_PEER_GOSSIP_BOOTSTRAP=__PEER_HOST__:__PEER_PORT__
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=__PEER_HOST__:__PEER_PORT__
+      - CORE_PEER_LOCALMSPID=__MSP_ID__
+      - CORE_PEER_MSPCONFIGPATH=/etc/hyperledger/fabric/msp
+      - CORE_OPERATIONS_LISTENADDRESS=__PEER_HOST__:__OPERATIONS_PORT__
+      - CORE_METRICS_PROVIDER=prometheus
+    volumes:
+      - __PEERCFG_PATH__:/etc/hyperledger/peercfg
+      - __PEER_CRYPTO_PATH__:/etc/hyperledger/fabric
+      - __PEER_HOST__:/var/hyperledger/production
+    working_dir: /root
+    command: peer node start
+    ports:
+      - __PEER_PORT__:__PEER_PORT__
+      - __OPERATIONS_PORT__:__OPERATIONS_PORT__
+    networks:
+      - test
