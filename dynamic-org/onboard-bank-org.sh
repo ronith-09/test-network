@@ -142,15 +142,93 @@ function next_operations_port() {
   jq -r '([.organizations[].operationsPort] | max // 9448) + 1' "${REGISTRY_PATH}"
 }
 
-if [[ -z "${PEER_PORT}" ]]; then
-  PEER_PORT="$(next_peer_port)"
-fi
+function existing_peer_port() {
+  jq -r --arg mspId "${MSP_ID}" --arg domain "${DOMAIN}" '
+    (.organizations[] | select(.mspId == $mspId or .domain == $domain) | .peerPort) // empty
+  ' "${REGISTRY_PATH}" | head -n 1
+}
 
-if [[ -z "${OPERATIONS_PORT}" ]]; then
-  OPERATIONS_PORT="$(next_operations_port)"
+function existing_operations_port() {
+  jq -r --arg mspId "${MSP_ID}" --arg domain "${DOMAIN}" '
+    (.organizations[] | select(.mspId == $mspId or .domain == $domain) | .operationsPort) // empty
+  ' "${REGISTRY_PATH}" | head -n 1
+}
+
+function peer_port_conflicts() {
+  local candidate="$1"
+
+  jq -e --argjson candidate "${candidate}" --argjson chaincodePort "$((candidate + 1))" '
+    any(.organizations[]?;
+      (.peerPort == $candidate) or
+      (.operationsPort == $candidate) or
+      (.peerPort + 1 == $candidate) or
+      (.peerPort == $chaincodePort) or
+      (.operationsPort == $chaincodePort) or
+      (.peerPort + 1 == $chaincodePort)
+    )
+  ' "${REGISTRY_PATH}" >/dev/null 2>&1
+}
+
+function operations_port_conflicts() {
+  local candidate="$1"
+  local peer_port="$2"
+
+  jq -e --argjson candidate "${candidate}" --argjson peerPort "${peer_port}" --argjson chaincodePort "$((peer_port + 1))" '
+    ($candidate == $peerPort) or
+    ($candidate == $chaincodePort) or
+    any(.organizations[]?;
+      (.peerPort == $candidate) or
+      (.operationsPort == $candidate) or
+      (.peerPort + 1 == $candidate)
+    )
+  ' "${REGISTRY_PATH}" >/dev/null 2>&1
+}
+
+function allocate_peer_port() {
+  local candidate
+  candidate="$(next_peer_port)"
+
+  while peer_port_conflicts "${candidate}"; do
+    candidate="$((candidate + 1000))"
+  done
+
+  echo "${candidate}"
+}
+
+function allocate_operations_port() {
+  local peer_port="$1"
+  local candidate
+  candidate="$(next_operations_port)"
+
+  while operations_port_conflicts "${candidate}" "${peer_port}"; do
+    candidate="$((candidate + 1))"
+  done
+
+  echo "${candidate}"
+}
+
+EXISTING_PEER_PORT="$(existing_peer_port)"
+EXISTING_OPERATIONS_PORT="$(existing_operations_port)"
+
+if [[ -n "${EXISTING_PEER_PORT}" ]]; then
+  PEER_PORT="${EXISTING_PEER_PORT}"
+elif [[ -n "${PEER_PORT}" ]]; then
+  infoln "Ignoring requested peer port ${PEER_PORT} for new org ${MSP_ID}; allocating a unique port automatically"
+  PEER_PORT="$(allocate_peer_port)"
+else
+  PEER_PORT="$(allocate_peer_port)"
 fi
 
 CHAINCODE_PORT="$((PEER_PORT + 1))"
+
+if [[ -n "${EXISTING_OPERATIONS_PORT}" ]]; then
+  OPERATIONS_PORT="${EXISTING_OPERATIONS_PORT}"
+elif [[ -n "${OPERATIONS_PORT}" ]]; then
+  infoln "Ignoring requested operations port ${OPERATIONS_PORT} for new org ${MSP_ID}; allocating a unique port automatically"
+  OPERATIONS_PORT="$(allocate_operations_port "${PEER_PORT}")"
+else
+  OPERATIONS_PORT="$(allocate_operations_port "${PEER_PORT}")"
+fi
 
 function render_template() {
   local template_path="$1"
@@ -192,29 +270,6 @@ function set_org_context() {
   export CORE_PEER_ADDRESS="localhost:${peer_port}"
 }
 
-function run_lifecycle_in_network() {
-  local msp_id="$1"
-  local peer_address="$2"
-  local peer_tls="$3"
-  local msp_path="$4"
-  local lifecycle_cmd="$5"
-
-  docker run --rm \
-    --network fabric_test \
-    -v "${FABRIC_SAMPLES_DIR}:${IN_CONTAINER_SAMPLES_DIR}" \
-    -w "${IN_CONTAINER_TEST_NETWORK_DIR}" \
-    "${FABRIC_TOOLS_IMAGE}" \
-    bash -lc "
-      export FABRIC_CFG_PATH=\$PWD/../config/ && \
-      export CORE_PEER_TLS_ENABLED=true && \
-      export CORE_PEER_LOCALMSPID='${msp_id}' && \
-      export CORE_PEER_TLS_ROOTCERT_FILE='${peer_tls}' && \
-      export CORE_PEER_MSPCONFIGPATH='${msp_path}' && \
-      export CORE_PEER_ADDRESS='${peer_address}' && \
-      peer lifecycle chaincode ${lifecycle_cmd}
-    "
-}
-
 function ensure_chaincode_package() {
   if [[ -f "${CHAINCODE_PACKAGE_FILE}" ]]; then
     return 0
@@ -228,20 +283,11 @@ function resolve_chaincode_package_id() {
 }
 
 function install_chaincode_for_org() {
-  local container_pkg="${CHAINCODE_PACKAGE_FILE/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
-  local peer_host_with_port="${PEER_HOST}:${PEER_PORT}"
-  local peer_tls_in_container="${CORE_PEER_TLS_ROOTCERT_FILE/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
-  local msp_path_in_container="${CORE_PEER_MSPCONFIGPATH/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
   local install_output
 
   set +e
   install_output="$(
-    run_lifecycle_in_network \
-      "${MSP_ID}" \
-      "${peer_host_with_port}" \
-      "${peer_tls_in_container}" \
-      "${msp_path_in_container}" \
-      "install ${container_pkg}" 2>&1
+    peer lifecycle chaincode install "${CHAINCODE_PACKAGE_FILE}" 2>&1
   )"
   local install_rc=$?
   set -e
@@ -255,25 +301,29 @@ function install_chaincode_for_org() {
 }
 
 function approve_chaincode_for_org() {
-  local peer_host_with_port="${PEER_HOST}:${PEER_PORT}"
-  local peer_tls_in_container="${CORE_PEER_TLS_ROOTCERT_FILE/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
-  local msp_path_in_container="${CORE_PEER_MSPCONFIGPATH/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
   local package_id="$1"
   local approve_output
 
   set +e
   approve_output="$(
-    run_lifecycle_in_network \
-      "${MSP_ID}" \
-      "${peer_host_with_port}" \
-      "${peer_tls_in_container}" \
-      "${msp_path_in_container}" \
-      "approveformyorg -o orderer.example.com:7050 --ordererTLSHostnameOverride orderer.example.com --channelID ${CHANNEL_NAME} --name ${CC_NAME} --version ${CC_VERSION} --package-id ${package_id} --sequence ${CC_SEQUENCE} --tls --cafile ${ORDERER_CA/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}" 2>&1
+    peer lifecycle chaincode approveformyorg \
+      -o localhost:7050 \
+      --ordererTLSHostnameOverride orderer.example.com \
+      --channelID "${CHANNEL_NAME}" \
+      --name "${CC_NAME}" \
+      --version "${CC_VERSION}" \
+      --package-id "${package_id}" \
+      --sequence "${CC_SEQUENCE}" \
+      --tls \
+      --cafile "${ORDERER_CA}" 2>&1
   )"
   local approve_rc=$?
   set -e
 
-  if [[ ${approve_rc} -ne 0 ]] && [[ "${approve_output}" != *"attempted to redefine uncommitted sequence"* ]] && [[ "${approve_output}" != *"successfully approved"* ]]; then
+  if [[ ${approve_rc} -ne 0 ]] \
+    && [[ "${approve_output}" != *"attempted to redefine uncommitted sequence"* ]] \
+    && [[ "${approve_output}" != *"attempted to redefine the current committed sequence"* ]] \
+    && [[ "${approve_output}" != *"successfully approved"* ]]; then
     echo "${approve_output}"
     fatalln "Failed to approve chaincode definition for ${MSP_ID}"
   fi
@@ -327,10 +377,20 @@ function create_anchor_peer_update() {
   local config_json="${GENERATED_DIR}/${MSP_ID}_config.json"
   local modified_json="${GENERATED_DIR}/${MSP_ID}_modified_config.json"
   local update_pb="${GENERATED_DIR}/${MSP_ID}_anchors.pb"
+  local existing_host
+  local existing_port
 
   peer channel fetch config "${GENERATED_DIR}/anchor_config_block.pb" -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com -c "${CHANNEL_NAME}" --tls --cafile "${ORDERER_CA}" >&"${GENERATED_DIR}/anchor_fetch.log"
   configtxlator proto_decode --input "${GENERATED_DIR}/anchor_config_block.pb" --type common.Block --output "${GENERATED_DIR}/anchor_config_block.json"
   jq .data.data[0].payload.data.config "${GENERATED_DIR}/anchor_config_block.json" > "${config_json}"
+
+  existing_host="$(jq -r --arg mspId "${MSP_ID}" '.channel_group.groups.Application.groups[$mspId].values.AnchorPeers.value.anchor_peers[0].host // empty' "${config_json}")"
+  existing_port="$(jq -r --arg mspId "${MSP_ID}" '.channel_group.groups.Application.groups[$mspId].values.AnchorPeers.value.anchor_peers[0].port // empty' "${config_json}")"
+
+  if [[ "${existing_host}" == "${PEER_HOST}" ]] && [[ "${existing_port}" == "${PEER_PORT}" ]]; then
+    echo "Anchor peer ${PEER_HOST}:${PEER_PORT} is already configured for ${MSP_ID}" > "${GENERATED_DIR}/anchor_update.log"
+    return 0
+  fi
 
   jq \
     --arg mspId "${MSP_ID}" \
@@ -391,23 +451,28 @@ peer channel fetch config "${GENERATED_DIR}/config_block.pb" -o localhost:7050 -
 configtxlator proto_decode --input "${GENERATED_DIR}/config_block.pb" --type common.Block --output "${GENERATED_DIR}/config_block.json"
 jq .data.data[0].payload.data.config "${GENERATED_DIR}/config_block.json" > "${GENERATED_DIR}/config.json"
 
-# Merge the newly generated org definition into the current Application group without recreating the channel.
-jq -s --arg mspId "${MSP_ID}" \
-  '.[0] * {"channel_group":{"groups":{"Application":{"groups": {($mspId):.[1]}}}}}' \
-  "${GENERATED_DIR}/config.json" "${ORG_BASE_DIR}/org-definition.json" > "${GENERATED_DIR}/modified_config.json"
+if jq -e --arg mspId "${MSP_ID}" '.channel_group.groups.Application.groups | has($mspId)' "${GENERATED_DIR}/config.json" >/dev/null; then
+  infoln "Organization ${MSP_ID} is already part of channel ${CHANNEL_NAME}; skipping config update"
+  echo "Organization ${MSP_ID} is already part of channel ${CHANNEL_NAME}" > "${GENERATED_DIR}/channel_update.log"
+else
+  # Merge the newly generated org definition into the current Application group without recreating the channel.
+  jq -s --arg mspId "${MSP_ID}" \
+    '.[0] * {"channel_group":{"groups":{"Application":{"groups": {($mspId):.[1]}}}}}' \
+    "${GENERATED_DIR}/config.json" "${ORG_BASE_DIR}/org-definition.json" > "${GENERATED_DIR}/modified_config.json"
 
-configtxlator proto_encode --input "${GENERATED_DIR}/config.json" --type common.Config --output "${GENERATED_DIR}/original_config.pb"
-configtxlator proto_encode --input "${GENERATED_DIR}/modified_config.json" --type common.Config --output "${GENERATED_DIR}/modified_config.pb"
-configtxlator compute_update --channel_id "${CHANNEL_NAME}" --original "${GENERATED_DIR}/original_config.pb" --updated "${GENERATED_DIR}/modified_config.pb" --output "${GENERATED_DIR}/org_update.pb"
-configtxlator proto_decode --input "${GENERATED_DIR}/org_update.pb" --type common.ConfigUpdate --output "${GENERATED_DIR}/org_update.json"
-echo "{\"payload\":{\"header\":{\"channel_header\":{\"channel_id\":\"${CHANNEL_NAME}\",\"type\":2}},\"data\":{\"config_update\":$(cat "${GENERATED_DIR}/org_update.json")}}}" | jq . > "${GENERATED_DIR}/org_update_in_envelope.json"
-configtxlator proto_encode --input "${GENERATED_DIR}/org_update_in_envelope.json" --type common.Envelope --output "${GENERATED_DIR}/org_update_in_envelope.pb"
+  configtxlator proto_encode --input "${GENERATED_DIR}/config.json" --type common.Config --output "${GENERATED_DIR}/original_config.pb"
+  configtxlator proto_encode --input "${GENERATED_DIR}/modified_config.json" --type common.Config --output "${GENERATED_DIR}/modified_config.pb"
+  configtxlator compute_update --channel_id "${CHANNEL_NAME}" --original "${GENERATED_DIR}/original_config.pb" --updated "${GENERATED_DIR}/modified_config.pb" --output "${GENERATED_DIR}/org_update.pb"
+  configtxlator proto_decode --input "${GENERATED_DIR}/org_update.pb" --type common.ConfigUpdate --output "${GENERATED_DIR}/org_update.json"
+  echo "{\"payload\":{\"header\":{\"channel_header\":{\"channel_id\":\"${CHANNEL_NAME}\",\"type\":2}},\"data\":{\"config_update\":$(cat "${GENERATED_DIR}/org_update.json")}}}" | jq . > "${GENERATED_DIR}/org_update_in_envelope.json"
+  configtxlator proto_encode --input "${GENERATED_DIR}/org_update_in_envelope.json" --type common.Envelope --output "${GENERATED_DIR}/org_update_in_envelope.pb"
 
-infoln "Collecting channel update signatures from active organizations"
-sign_with_current_orgs
+  infoln "Collecting channel update signatures from active organizations"
+  sign_with_current_orgs
 
-set_org_context "${FIRST_SIGNER_MSP}" "${FIRST_SIGNER_DOMAIN}" "${FIRST_SIGNER_PORT}"
-peer channel update -f "${GENERATED_DIR}/org_update_in_envelope.pb" -c "${CHANNEL_NAME}" -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${ORDERER_CA}" >&"${GENERATED_DIR}/channel_update.log"
+  set_org_context "${FIRST_SIGNER_MSP}" "${FIRST_SIGNER_DOMAIN}" "${FIRST_SIGNER_PORT}"
+  peer channel update -f "${GENERATED_DIR}/org_update_in_envelope.pb" -c "${CHANNEL_NAME}" -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${ORDERER_CA}" >&"${GENERATED_DIR}/channel_update.log"
+fi
 
 infoln "Fetching latest channel block for ${PEER_HOST}"
 set_org_context "${MSP_ID}" "${DOMAIN}" "${PEER_PORT}"

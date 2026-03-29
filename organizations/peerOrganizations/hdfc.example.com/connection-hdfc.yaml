@@ -1,0 +1,59 @@
+name: HdfcMSP-connection
+version: 1.0.0
+client:
+  organization: HdfcMSP
+  connection:
+    timeout:
+      peer:
+        endorser: "300"
+organizations:
+  HdfcMSP:
+    mspid: HdfcMSP
+    peers:
+      - peer0.hdfc.example.com
+orderers:
+  orderer.example.com:
+    url: grpcs://localhost:7050
+    tlsCACerts:
+      pem: |
+                -----BEGIN CERTIFICATE-----
+        MIICQzCCAemgAwIBAgIQJPeFUluN8UxPjlJHIy8MxDAKBggqhkjOPQQDAjBsMQsw
+        CQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNU2FuIEZy
+        YW5jaXNjbzEUMBIGA1UEChMLZXhhbXBsZS5jb20xGjAYBgNVBAMTEXRsc2NhLmV4
+        YW1wbGUuY29tMB4XDTI2MDMyOTA3MzEwMFoXDTM2MDMyNjA3MzEwMFowbDELMAkG
+        A1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBGcmFu
+        Y2lzY28xFDASBgNVBAoTC2V4YW1wbGUuY29tMRowGAYDVQQDExF0bHNjYS5leGFt
+        cGxlLmNvbTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNWIWXwYwqk2Mm1nW2u4
+        XdR55VsAjspfyOp02hdz3vMQJ0rVIrvQx9rGAQMuFhTymnSaTsSBi0ArA998TJqE
+        lz2jbTBrMA4GA1UdDwEB/wQEAwIBpjAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYB
+        BQUHAwEwDwYDVR0TAQH/BAUwAwEB/zApBgNVHQ4EIgQg6VBDpJbpG/i8nl9Trv0d
+        68toqk3SWAOHX6FWiCx5VXMwCgYIKoZIzj0EAwIDSAAwRQIgdst6Jl11mJM2RJZu
+        zep9t3o0wM19W2//9HwR+2b109QCIQDD60UsnoYogpYyovvFZZw9MZrwy0RcAqhj
+        nV6X001Ujg==
+        -----END CERTIFICATE-----
+    grpcOptions:
+      ssl-target-name-override: orderer.example.com
+      hostnameOverride: orderer.example.com
+peers:
+  peer0.hdfc.example.com:
+    url: grpcs://localhost:8000
+    tlsCACerts:
+      pem: |
+                -----BEGIN CERTIFICATE-----
+        MIICVzCCAf6gAwIBAgIRAMo2E0XzDY7bpiTLtEhFe2IwCgYIKoZIzj0EAwIwdjEL
+        MAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG
+        cmFuY2lzY28xGTAXBgNVBAoTEGhkZmMuZXhhbXBsZS5jb20xHzAdBgNVBAMTFnRs
+        c2NhLmhkZmMuZXhhbXBsZS5jb20wHhcNMjYwMzI5MDgwMzAwWhcNMzYwMzI2MDgw
+        MzAwWjB2MQswCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UE
+        BxMNU2FuIEZyYW5jaXNjbzEZMBcGA1UEChMQaGRmYy5leGFtcGxlLmNvbTEfMB0G
+        A1UEAxMWdGxzY2EuaGRmYy5leGFtcGxlLmNvbTBZMBMGByqGSM49AgEGCCqGSM49
+        AwEHA0IABDDrbb+eMAoxR5NMOxeNf6qIRjHlDvMCxzjHBFegQNajyu3uBi0iYHsW
+        Z1nDgOVMFhWnm2lG53hwL08UOPn+CFijbTBrMA4GA1UdDwEB/wQEAwIBpjAdBgNV
+        HSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwEwDwYDVR0TAQH/BAUwAwEB/zApBgNV
+        HQ4EIgQgSn2ZproLENihhveF+e8bxR85+HxfPi4Wsv/EHWgQSdswCgYIKoZIzj0E
+        AwIDRwAwRAIgW+grmRGnX0aSd4RbG0F7Yg+CUCG3HKU8teco1dogA0ICIDC/oiiq
+        /8Ltdgoz80mb4F7f5Y5eGdfBafnC6LQlg/gp
+        -----END CERTIFICATE-----
+    grpcOptions:
+      ssl-target-name-override: peer0.hdfc.example.com
+      hostnameOverride: peer0.hdfc.example.com

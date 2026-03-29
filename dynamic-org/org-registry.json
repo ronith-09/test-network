@@ -39,6 +39,46 @@
       "peerPort": 12051,
       "operationsPort": 9448,
       "active": true
+    },
+    {
+      "key": "hdfc",
+      "displayName": "HDFCIND",
+      "mspId": "HdfcMSP",
+      "domain": "hdfc.example.com",
+      "peerHost": "peer0.hdfc.example.com",
+      "peerPort": 8000,
+      "operationsPort": 9450,
+      "active": true
+    },
+    {
+      "key": "sbi",
+      "displayName": "State Bank Of India",
+      "mspId": "SbiMSP",
+      "domain": "sbi.example.com",
+      "peerHost": "peer0.sbi.example.com",
+      "peerPort": 14051,
+      "operationsPort": 9451,
+      "active": true
+    },
+    {
+      "key": "icici",
+      "displayName": "ICICI",
+      "mspId": "IciciMSP",
+      "domain": "icici.example.com",
+      "peerHost": "peer0.icici.example.com",
+      "peerPort": 13051,
+      "operationsPort": 9449,
+      "active": true
+    },
+    {
+      "key": "pnb",
+      "displayName": "Punjab Natioinal Bank",
+      "mspId": "PnbMSP",
+      "domain": "pnb.example.com",
+      "peerHost": "peer0.pnb.example.com",
+      "peerPort": 15051,
+      "operationsPort": 9452,
+      "active": true
     }
   ]
 }

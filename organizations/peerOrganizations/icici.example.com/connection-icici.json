@@ -1,0 +1,46 @@
+{
+  "name": "IciciMSP-connection",
+  "version": "1.0.0",
+  "client": {
+    "organization": "IciciMSP",
+    "connection": {
+      "timeout": {
+        "peer": {
+          "endorser": "300"
+        }
+      }
+    }
+  },
+  "organizations": {
+    "IciciMSP": {
+      "mspid": "IciciMSP",
+      "peers": [
+        "peer0.icici.example.com"
+      ]
+    }
+  },
+  "orderers": {
+    "orderer.example.com": {
+      "url": "grpcs://localhost:7050",
+      "tlsCACerts": {
+        "pem": "-----BEGIN CERTIFICATE-----\nMIICQzCCAemgAwIBAgIQJPeFUluN8UxPjlJHIy8MxDAKBggqhkjOPQQDAjBsMQsw\nCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNU2FuIEZy\nYW5jaXNjbzEUMBIGA1UEChMLZXhhbXBsZS5jb20xGjAYBgNVBAMTEXRsc2NhLmV4\nYW1wbGUuY29tMB4XDTI2MDMyOTA3MzEwMFoXDTM2MDMyNjA3MzEwMFowbDELMAkG\nA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBGcmFu\nY2lzY28xFDASBgNVBAoTC2V4YW1wbGUuY29tMRowGAYDVQQDExF0bHNjYS5leGFt\ncGxlLmNvbTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABNWIWXwYwqk2Mm1nW2u4\nXdR55VsAjspfyOp02hdz3vMQJ0rVIrvQx9rGAQMuFhTymnSaTsSBi0ArA998TJqE\nlz2jbTBrMA4GA1UdDwEB/wQEAwIBpjAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYB\nBQUHAwEwDwYDVR0TAQH/BAUwAwEB/zApBgNVHQ4EIgQg6VBDpJbpG/i8nl9Trv0d\n68toqk3SWAOHX6FWiCx5VXMwCgYIKoZIzj0EAwIDSAAwRQIgdst6Jl11mJM2RJZu\nzep9t3o0wM19W2//9HwR+2b109QCIQDD60UsnoYogpYyovvFZZw9MZrwy0RcAqhj\nnV6X001Ujg==\n-----END CERTIFICATE-----\n"
+      },
+      "grpcOptions": {
+        "ssl-target-name-override": "orderer.example.com",
+        "hostnameOverride": "orderer.example.com"
+      }
+    }
+  },
+  "peers": {
+    "peer0.icici.example.com": {
+      "url": "grpcs://localhost:13051",
+      "tlsCACerts": {
+        "pem": "-----BEGIN CERTIFICATE-----\nMIICXDCCAgKgAwIBAgIRAMR/45e1T+cOAbY7TpGUIPQwCgYIKoZIzj0EAwIweDEL\nMAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG\ncmFuY2lzY28xGjAYBgNVBAoTEWljaWNpLmV4YW1wbGUuY29tMSAwHgYDVQQDExd0\nbHNjYS5pY2ljaS5leGFtcGxlLmNvbTAeFw0yNjAzMjkwNzU2MDBaFw0zNjAzMjYw\nNzU2MDBaMHgxCzAJBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYD\nVQQHEw1TYW4gRnJhbmNpc2NvMRowGAYDVQQKExFpY2ljaS5leGFtcGxlLmNvbTEg\nMB4GA1UEAxMXdGxzY2EuaWNpY2kuZXhhbXBsZS5jb20wWTATBgcqhkjOPQIBBggq\nhkjOPQMBBwNCAASuF6GDeTjgDukLF/DFzEmHuWUuyE98nhPOYN1S/fnkbZQI3HWf\nCvzSr2o462knXg311DBvO54SmkbvZFDc5MZSo20wazAOBgNVHQ8BAf8EBAMCAaYw\nHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsGAQUFBwMBMA8GA1UdEwEB/wQFMAMBAf8w\nKQYDVR0OBCIEILMQuOVMrZ0ypwR02ioY75CPkTkHUwifBFIx/IPqA/mqMAoGCCqG\nSM49BAMCA0gAMEUCIQDRlFoPXlT3+WtdMljcl8gegvCW6yy9aozznGrgYuuQNAIg\nC/6DP+eF5WhcW9k6k0zBIZJNoSw5LcvE2/iYjpQsDu8=\n-----END CERTIFICATE-----\n"
+      },
+      "grpcOptions": {
+        "ssl-target-name-override": "peer0.icici.example.com",
+        "hostnameOverride": "peer0.icici.example.com"
+      }
+    }
+  }
+}

@@ -53,36 +53,36 @@ type Wallet struct {
 }
 
 type MintRequest struct {
-	RequestID        string  `json:"requestId"`
-	BankID           string  `json:"bankId"`
-	Currency         string  `json:"currency"`
-	Amount           int64   `json:"amount"`
-	Reason           string  `json:"reason"`
-	Status           string  `json:"status"`
-	RequestedAt      string  `json:"requestedAt"`
-	ReviewedAt       *string `json:"reviewedAt"`
-	ReviewedBy       *string `json:"reviewedBy"`
-	RejectionReason  *string `json:"rejectionReason"`
-	ApprovalTxID     *string `json:"approvalTxId"`
-	WalletSnapshotID *string `json:"walletSnapshotId"`
+	RequestID        string `json:"requestId"`
+	BankID           string `json:"bankId"`
+	Currency         string `json:"currency"`
+	Amount           int64  `json:"amount"`
+	Reason           string `json:"reason"`
+	Status           string `json:"status"`
+	RequestedAt      string `json:"requestedAt"`
+	ReviewedAt       string `json:"reviewedAt"`
+	ReviewedBy       string `json:"reviewedBy"`
+	RejectionReason  string `json:"rejectionReason"`
+	ApprovalTxID     string `json:"approvalTxId"`
+	WalletSnapshotID string `json:"walletSnapshotId"`
 }
 
 type Settlement struct {
-	SettlementID    string  `json:"settlementId"`
-	FromBank        string  `json:"fromBank"`
-	ToBank          string  `json:"toBank"`
-	Currency        string  `json:"currency"`
-	Amount          int64   `json:"amount"`
-	Reference       string  `json:"reference"`
-	Purpose         string  `json:"purpose"`
-	Status          string  `json:"status"`
-	CreatedAt       string  `json:"createdAt"`
-	ApprovedAt      *string `json:"approvedAt"`
-	ApprovedBy      *string `json:"approvedBy"`
-	RejectionReason *string `json:"rejectionReason"`
-	CompletedAt     *string `json:"completedAt"`
-	ExecutedBy      *string `json:"executedBy"`
-	ExecutionTxID   *string `json:"executionTxId"`
+	SettlementID    string `json:"settlementId"`
+	FromBank        string `json:"fromBank"`
+	ToBank          string `json:"toBank"`
+	Currency        string `json:"currency"`
+	Amount          int64  `json:"amount"`
+	Reference       string `json:"reference"`
+	Purpose         string `json:"purpose"`
+	Status          string `json:"status"`
+	CreatedAt       string `json:"createdAt"`
+	ApprovedAt      string `json:"approvedAt"`
+	ApprovedBy      string `json:"approvedBy"`
+	RejectionReason string `json:"rejectionReason"`
+	CompletedAt     string `json:"completedAt"`
+	ExecutedBy      string `json:"executedBy"`
+	ExecutionTxID   string `json:"executionTxId"`
 }
 
 type SettlementInvestigation struct {
@@ -801,11 +801,11 @@ func (pc *ParticipantChaincode) ApproveMintRequest(
 	reviewedAtStr := timestampToRFC3339(reviewedAt)
 	txID := ctx.GetStub().GetTxID()
 	request.Status = "APPROVED"
-	request.ReviewedAt = &reviewedAtStr
-	request.ReviewedBy = &reviewerID
-	request.RejectionReason = nil
-	request.ApprovalTxID = &txID
-	request.WalletSnapshotID = &wallet.WalletID
+	request.ReviewedAt = reviewedAtStr
+	request.ReviewedBy = reviewerID
+	request.RejectionReason = ""
+	request.ApprovalTxID = txID
+	request.WalletSnapshotID = wallet.WalletID
 
 	if err := pc.saveMintRequest(ctx, request); err != nil {
 		return nil, err
@@ -852,11 +852,11 @@ func (pc *ParticipantChaincode) RejectMintRequest(
 	reviewedAtStr := timestampToRFC3339(reviewedAt)
 	reason := strings.TrimSpace(rejectionReason)
 	request.Status = "REJECTED"
-	request.ReviewedAt = &reviewedAtStr
-	request.ReviewedBy = &reviewerID
-	request.RejectionReason = &reason
-	request.ApprovalTxID = nil
-	request.WalletSnapshotID = nil
+	request.ReviewedAt = reviewedAtStr
+	request.ReviewedBy = reviewerID
+	request.RejectionReason = reason
+	request.ApprovalTxID = ""
+	request.WalletSnapshotID = ""
 
 	if err := pc.saveMintRequest(ctx, request); err != nil {
 		return nil, err
@@ -1041,9 +1041,9 @@ func (pc *ParticipantChaincode) ApproveSettlement(
 
 	approvedAtStr := timestampToRFC3339(approvedAt)
 	settlement.Status = "APPROVED"
-	settlement.ApprovedAt = &approvedAtStr
-	settlement.ApprovedBy = &approverID
-	settlement.RejectionReason = nil
+	settlement.ApprovedAt = approvedAtStr
+	settlement.ApprovedBy = approverID
+	settlement.RejectionReason = ""
 
 	if err := pc.saveSettlement(ctx, settlement); err != nil {
 		return nil, err
@@ -1077,10 +1077,10 @@ func (pc *ParticipantChaincode) RejectSettlement(
 
 	reason := strings.TrimSpace(rejectionReason)
 	settlement.Status = "REJECTED"
-	settlement.RejectionReason = &reason
-	settlement.CompletedAt = nil
-	settlement.ExecutedBy = nil
-	settlement.ExecutionTxID = nil
+	settlement.RejectionReason = reason
+	settlement.CompletedAt = ""
+	settlement.ExecutedBy = ""
+	settlement.ExecutionTxID = ""
 
 	if err := pc.saveSettlement(ctx, settlement); err != nil {
 		return nil, err
@@ -1142,9 +1142,9 @@ func (pc *ParticipantChaincode) ExecuteSettlement(
 	completedAtStr := timestampToRFC3339(completedAt)
 	txID := ctx.GetStub().GetTxID()
 	settlement.Status = "COMPLETED"
-	settlement.CompletedAt = &completedAtStr
-	settlement.ExecutedBy = &executorID
-	settlement.ExecutionTxID = &txID
+	settlement.CompletedAt = completedAtStr
+	settlement.ExecutedBy = executorID
+	settlement.ExecutionTxID = txID
 
 	if err := pc.saveSettlement(ctx, settlement); err != nil {
 		return nil, err
@@ -1241,8 +1241,8 @@ func (pc *ParticipantChaincode) InvestigateSettlement(
 	case "REJECTED":
 		investigation.StoppedAtStep = "REJECTED"
 		investigation.PendingWith = "NONE"
-		if settlement.RejectionReason != nil {
-			investigation.Reason = *settlement.RejectionReason
+		if settlement.RejectionReason != "" {
+			investigation.Reason = settlement.RejectionReason
 		}
 	case "COMPLETED":
 		investigation.StoppedAtStep = "COMPLETED"
@@ -1250,21 +1250,21 @@ func (pc *ParticipantChaincode) InvestigateSettlement(
 		investigation.Reason = "Settlement completed successfully"
 	}
 
-	if settlement.ApprovedAt != nil {
-		investigation.LastUpdatedAt = *settlement.ApprovedAt
+	if settlement.ApprovedAt != "" {
+		investigation.LastUpdatedAt = settlement.ApprovedAt
 		investigation.ActionHistory = append(investigation.ActionHistory, map[string]string{
 			"step":      "APPROVED",
 			"status":    "APPROVED",
-			"timestamp": *settlement.ApprovedAt,
+			"timestamp": settlement.ApprovedAt,
 		})
 	}
 
-	if settlement.CompletedAt != nil {
-		investigation.LastUpdatedAt = *settlement.CompletedAt
+	if settlement.CompletedAt != "" {
+		investigation.LastUpdatedAt = settlement.CompletedAt
 		investigation.ActionHistory = append(investigation.ActionHistory, map[string]string{
 			"step":      "COMPLETED",
 			"status":    "COMPLETED",
-			"timestamp": *settlement.CompletedAt,
+			"timestamp": settlement.CompletedAt,
 		})
 	}
 
