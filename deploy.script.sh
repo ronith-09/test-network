@@ -6,7 +6,7 @@ echo "Starting BetweenNetwork chaincode deploy automation..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FABRIC_SAMPLES_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TEST_NETWORK_DIR="${TEST_NETWORK_DIR:-${FABRIC_SAMPLES_DIR}/test-network}"
-CHAINCODE_DIR="${CHAINCODE_DIR:-${SCRIPT_DIR}/chaincode/participant-chaincode}"
+CHAINCODE_DIR="${CHAINCODE_DIR:-${FABRIC_SAMPLES_DIR}/betweennetwork/chaincode/participant-chaincode}"
 IN_CONTAINER_SAMPLES_DIR="/workspace/fabric-samples"
 IN_CONTAINER_TEST_NETWORK_DIR="${IN_CONTAINER_SAMPLES_DIR}/test-network"
 
