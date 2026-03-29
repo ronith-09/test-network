@@ -1,0 +1,46 @@
+{
+  "name": "BankTestMSP-connection",
+  "version": "1.0.0",
+  "client": {
+    "organization": "BankTestMSP",
+    "connection": {
+      "timeout": {
+        "peer": {
+          "endorser": "300"
+        }
+      }
+    }
+  },
+  "organizations": {
+    "BankTestMSP": {
+      "mspid": "BankTestMSP",
+      "peers": [
+        "peer0.banktest.example.com"
+      ]
+    }
+  },
+  "orderers": {
+    "orderer.example.com": {
+      "url": "grpcs://localhost:7050",
+      "tlsCACerts": {
+        "pem": "-----BEGIN CERTIFICATE-----\nMIICRTCCAeqgAwIBAgIRAPAC/Tl4ZUNvzp13EKUGJPEwCgYIKoZIzj0EAwIwbDEL\nMAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWExFjAUBgNVBAcTDVNhbiBG\ncmFuY2lzY28xFDASBgNVBAoTC2V4YW1wbGUuY29tMRowGAYDVQQDExF0bHNjYS5l\neGFtcGxlLmNvbTAeFw0yNjAzMjgyMDIwMDBaFw0zNjAzMjUyMDIwMDBaMGwxCzAJ\nBgNVBAYTAlVTMRMwEQYDVQQIEwpDYWxpZm9ybmlhMRYwFAYDVQQHEw1TYW4gRnJh\nbmNpc2NvMRQwEgYDVQQKEwtleGFtcGxlLmNvbTEaMBgGA1UEAxMRdGxzY2EuZXhh\nbXBsZS5jb20wWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAARvVw9skIkUTtBPAgoN\nL/Wf2w/v8zCWuMJn96pFNkpixDIHkKeh5g4zIWzKL1l2Kz0fvo0lxDFA2A1Bergd\nzPRlo20wazAOBgNVHQ8BAf8EBAMCAaYwHQYDVR0lBBYwFAYIKwYBBQUHAwIGCCsG\nAQUFBwMBMA8GA1UdEwEB/wQFMAMBAf8wKQYDVR0OBCIEINNGj3HFOBaSc4kQYnz7\nx3weJuWXtTO9KnD0xr2wz6CTMAoGCCqGSM49BAMCA0kAMEYCIQD/D7lU6FXfnRIO\nOxKTTMc0nrIo03TB6P0pHiE94s0GzQIhAIrrOZ9EFr7rs/UWLn3EYS8Yq0ez6TOh\n/5AcLTn4vlI2\n-----END CERTIFICATE-----\n"
+      },
+      "grpcOptions": {
+        "ssl-target-name-override": "orderer.example.com",
+        "hostnameOverride": "orderer.example.com"
+      }
+    }
+  },
+  "peers": {
+    "peer0.banktest.example.com": {
+      "url": "grpcs://localhost:13051",
+      "tlsCACerts": {
+        "pem": "-----BEGIN CERTIFICATE-----\nMIICZjCCAg2gAwIBAgIQH/KNjnakqpVBWOoTfNJP1zAKBggqhkjOPQQDAjB+MQsw\nCQYDVQQGEwJVUzETMBEGA1UECBMKQ2FsaWZvcm5pYTEWMBQGA1UEBxMNU2FuIEZy\nYW5jaXNjbzEdMBsGA1UEChMUYmFua3Rlc3QuZXhhbXBsZS5jb20xIzAhBgNVBAMT\nGnRsc2NhLmJhbmt0ZXN0LmV4YW1wbGUuY29tMB4XDTI2MDMyODIwNTMwMFoXDTM2\nMDMyNTIwNTMwMFowfjELMAkGA1UEBhMCVVMxEzARBgNVBAgTCkNhbGlmb3JuaWEx\nFjAUBgNVBAcTDVNhbiBGcmFuY2lzY28xHTAbBgNVBAoTFGJhbmt0ZXN0LmV4YW1w\nbGUuY29tMSMwIQYDVQQDExp0bHNjYS5iYW5rdGVzdC5leGFtcGxlLmNvbTBZMBMG\nByqGSM49AgEGCCqGSM49AwEHA0IABFvXVoYewkAcA0PSDcIcy2BSv9CqnB1LjQ7g\nm5m3k77wjtoDxNzBl/u6aJamsHvQZhnjPAGQHAAvMC/MaVXf0P2jbTBrMA4GA1Ud\nDwEB/wQEAwIBpjAdBgNVHSUEFjAUBggrBgEFBQcDAgYIKwYBBQUHAwEwDwYDVR0T\nAQH/BAUwAwEB/zApBgNVHQ4EIgQgtOYO5Wd7A5IuIuFk996D1pJn0DuP5uoEYSt4\nFIJ29JEwCgYIKoZIzj0EAwIDRwAwRAIgcMaBr8ggPiE7QXjZBcEJ0A1lVqE0pa97\naFZj1taZfygCICNxBexEBNGZVZCv7tbBsqqhMEU8xvyIi/L0tCEZZxxd\n-----END CERTIFICATE-----\n"
+      },
+      "grpcOptions": {
+        "ssl-target-name-override": "peer0.banktest.example.com",
+        "hostnameOverride": "peer0.banktest.example.com"
+      }
+    }
+  }
+}

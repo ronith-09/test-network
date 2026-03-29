@@ -9,7 +9,7 @@ REGISTRY_PATH="${SCRIPT_DIR}/org-registry.json"
 GENERATED_ROOT="${SCRIPT_DIR}/generated"
 
 export PATH="${TEST_NETWORK_HOME}/../bin:${TEST_NETWORK_HOME}:$PATH"
-export FABRIC_CFG_PATH="${TEST_NETWORK_HOME}/configtx"
+export FABRIC_CFG_PATH="${TEST_NETWORK_HOME}/../config"
 
 . "${TEST_NETWORK_HOME}/scripts/utils.sh"
 
@@ -20,7 +20,14 @@ else
   : "${CONTAINER_CLI_COMPOSE:=${CONTAINER_CLI} compose}"
 fi
 
+: "${IMAGE_TAG:=2.5.14}"
+: "${FABRIC_TOOLS_IMAGE:=hyperledger/fabric-tools:${IMAGE_TAG}}"
+
 CHANNEL_NAME="${FABRIC_CHANNEL_NAME:-betweennetwork}"
+CC_NAME="${CC_NAME:-participant}"
+CC_LABEL="${CC_LABEL:-participant_chaincode_1}"
+CC_VERSION="${CC_VERSION:-1.0}"
+CC_SEQUENCE="${CC_SEQUENCE:-1}"
 BANK_ID=""
 ORG_NAME=""
 MSP_ID=""
@@ -108,6 +115,10 @@ ORDERER_CA="${TEST_NETWORK_HOME}/organizations/ordererOrganizations/example.com/
 PEERCFG_PATH="${TEST_NETWORK_HOME}/compose/docker/peercfg"
 DOCKER_SOCK_PATH="${DOCKER_HOST:-/var/run/docker.sock}"
 DOCKER_SOCK_PATH="${DOCKER_SOCK_PATH#unix://}"
+FABRIC_SAMPLES_DIR="$(cd "${TEST_NETWORK_HOME}/.." && pwd)"
+IN_CONTAINER_SAMPLES_DIR="/workspace/fabric-samples"
+IN_CONTAINER_TEST_NETWORK_DIR="${IN_CONTAINER_SAMPLES_DIR}/test-network"
+CHAINCODE_PACKAGE_FILE="${CHAINCODE_PACKAGE_FILE:-${TEST_NETWORK_HOME}/${CC_LABEL}.tar.gz}"
 
 mkdir -p "${GENERATED_DIR}" "${TEST_NETWORK_HOME}/channel-artifacts"
 
@@ -179,6 +190,95 @@ function set_org_context() {
   export CORE_PEER_TLS_ROOTCERT_FILE="${TEST_NETWORK_HOME}/organizations/peerOrganizations/${domain}/tlsca/tlsca.${domain}-cert.pem"
   export CORE_PEER_MSPCONFIGPATH="${TEST_NETWORK_HOME}/organizations/peerOrganizations/${domain}/users/Admin@${domain}/msp"
   export CORE_PEER_ADDRESS="localhost:${peer_port}"
+}
+
+function run_lifecycle_in_network() {
+  local msp_id="$1"
+  local peer_address="$2"
+  local peer_tls="$3"
+  local msp_path="$4"
+  local lifecycle_cmd="$5"
+
+  docker run --rm \
+    --network fabric_test \
+    -v "${FABRIC_SAMPLES_DIR}:${IN_CONTAINER_SAMPLES_DIR}" \
+    -w "${IN_CONTAINER_TEST_NETWORK_DIR}" \
+    "${FABRIC_TOOLS_IMAGE}" \
+    bash -lc "
+      export FABRIC_CFG_PATH=\$PWD/../config/ && \
+      export CORE_PEER_TLS_ENABLED=true && \
+      export CORE_PEER_LOCALMSPID='${msp_id}' && \
+      export CORE_PEER_TLS_ROOTCERT_FILE='${peer_tls}' && \
+      export CORE_PEER_MSPCONFIGPATH='${msp_path}' && \
+      export CORE_PEER_ADDRESS='${peer_address}' && \
+      peer lifecycle chaincode ${lifecycle_cmd}
+    "
+}
+
+function ensure_chaincode_package() {
+  if [[ -f "${CHAINCODE_PACKAGE_FILE}" ]]; then
+    return 0
+  fi
+
+  fatalln "Chaincode package not found: ${CHAINCODE_PACKAGE_FILE}"
+}
+
+function resolve_chaincode_package_id() {
+  peer lifecycle chaincode calculatepackageid "${CHAINCODE_PACKAGE_FILE}"
+}
+
+function install_chaincode_for_org() {
+  local container_pkg="${CHAINCODE_PACKAGE_FILE/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
+  local peer_host_with_port="${PEER_HOST}:${PEER_PORT}"
+  local peer_tls_in_container="${CORE_PEER_TLS_ROOTCERT_FILE/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
+  local msp_path_in_container="${CORE_PEER_MSPCONFIGPATH/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
+  local install_output
+
+  set +e
+  install_output="$(
+    run_lifecycle_in_network \
+      "${MSP_ID}" \
+      "${peer_host_with_port}" \
+      "${peer_tls_in_container}" \
+      "${msp_path_in_container}" \
+      "install ${container_pkg}" 2>&1
+  )"
+  local install_rc=$?
+  set -e
+
+  if [[ ${install_rc} -ne 0 ]] && [[ "${install_output}" != *"already successfully installed"* ]]; then
+    echo "${install_output}"
+    fatalln "Failed to install chaincode on ${PEER_HOST}"
+  fi
+
+  echo "${install_output}" > "${GENERATED_DIR}/chaincode_install.log"
+}
+
+function approve_chaincode_for_org() {
+  local peer_host_with_port="${PEER_HOST}:${PEER_PORT}"
+  local peer_tls_in_container="${CORE_PEER_TLS_ROOTCERT_FILE/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
+  local msp_path_in_container="${CORE_PEER_MSPCONFIGPATH/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
+  local package_id="$1"
+  local approve_output
+
+  set +e
+  approve_output="$(
+    run_lifecycle_in_network \
+      "${MSP_ID}" \
+      "${peer_host_with_port}" \
+      "${peer_tls_in_container}" \
+      "${msp_path_in_container}" \
+      "approveformyorg -o orderer.example.com:7050 --ordererTLSHostnameOverride orderer.example.com --channelID ${CHANNEL_NAME} --name ${CC_NAME} --version ${CC_VERSION} --package-id ${package_id} --sequence ${CC_SEQUENCE} --tls --cafile ${ORDERER_CA/${TEST_NETWORK_HOME}/${IN_CONTAINER_TEST_NETWORK_DIR}}" 2>&1
+  )"
+  local approve_rc=$?
+  set -e
+
+  if [[ ${approve_rc} -ne 0 ]] && [[ "${approve_output}" != *"attempted to redefine uncommitted sequence"* ]] && [[ "${approve_output}" != *"successfully approved"* ]]; then
+    echo "${approve_output}"
+    fatalln "Failed to approve chaincode definition for ${MSP_ID}"
+  fi
+
+  echo "${approve_output}" > "${GENERATED_DIR}/chaincode_approve.log"
 }
 
 function sign_with_current_orgs() {
@@ -336,6 +436,14 @@ fi
 infoln "Setting anchor peer for ${MSP_ID}"
 create_anchor_peer_update
 
+infoln "Installing participant chaincode for ${MSP_ID}"
+ensure_chaincode_package
+CHAINCODE_PACKAGE_ID="$(resolve_chaincode_package_id)"
+install_chaincode_for_org
+
+infoln "Approving participant chaincode definition for ${MSP_ID}"
+approve_chaincode_for_org "${CHAINCODE_PACKAGE_ID}"
+
 ORDERER_PEM_ESCAPED="$(one_line_pem "${ORDERER_CA}")"
 PEER_PEM_ESCAPED="$(one_line_pem "${ORG_BASE_DIR}/tlsca/tlsca.${DOMAIN}-cert.pem")"
 ORDERER_PEM_YAML="$(indented_pem "${ORDERER_CA}")"
@@ -355,7 +463,7 @@ sed \
   -e "s|__PEER_PORT__|${PEER_PORT}|g" \
   -e "s|__ORDERER_PEM_YAML__|${ORDERER_PEM_YAML//$'\n'/\\n}|g" \
   -e "s|__PEER_PEM_YAML__|${PEER_PEM_YAML//$'\n'/\\n}|g" \
-  "${TEMPLATES_DIR}/connection-profile-template.yaml" | sed -e $'s/\\n/\n/g' > "${ORG_BASE_DIR}/connection-${ORG_KEY}.yaml"
+  "${TEMPLATES_DIR}/connection-profile-template.yaml" | perl -pe 's/\\n/\n/g' > "${ORG_BASE_DIR}/connection-${ORG_KEY}.yaml"
 
 update_registry
 
@@ -372,6 +480,9 @@ jq -n \
   --arg connectionProfileYaml "${ORG_BASE_DIR}/connection-${ORG_KEY}.yaml" \
   --arg composeFile "${GENERATED_DIR}/compose-org.yaml" \
   --arg dockerComposeFile "${GENERATED_DIR}/docker-compose-org.yaml" \
+  --arg chaincodeName "${CC_NAME}" \
+  --arg chaincodeLabel "${CC_LABEL}" \
+  --arg chaincodePackageId "${CHAINCODE_PACKAGE_ID}" \
   --argjson peerPort "${PEER_PORT}" \
   --argjson chaincodePort "${CHAINCODE_PORT}" \
   --argjson operationsPort "${OPERATIONS_PORT}" \
@@ -390,7 +501,13 @@ jq -n \
     connectionProfileJson: $connectionProfileJson,
     connectionProfileYaml: $connectionProfileYaml,
     composeFile: $composeFile,
-    dockerComposeFile: $dockerComposeFile
+    dockerComposeFile: $dockerComposeFile,
+    chaincode: {
+      name: $chaincodeName,
+      label: $chaincodeLabel,
+      packageId: $chaincodePackageId,
+      approvedForMspId: $mspId
+    }
   }' > "${RESULT_JSON}"
 
 if [[ -n "${OUTPUT_JSON}" ]]; then
