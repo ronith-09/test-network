@@ -270,6 +270,55 @@ function set_org_context() {
   export CORE_PEER_ADDRESS="localhost:${peer_port}"
 }
 
+function org_admin_msp_path() {
+  local domain="$1"
+  echo "${TEST_NETWORK_HOME}/organizations/peerOrganizations/${domain}/users/Admin@${domain}/msp"
+}
+
+function org_entry_is_usable() {
+  local domain="$1"
+  [[ -d "$(org_admin_msp_path "${domain}")" ]]
+}
+
+function registry_entry_by_msp() {
+  local msp_id="$1"
+  jq -c --arg mspId "${msp_id}" '.organizations[] | select(.mspId == $mspId)' "${REGISTRY_PATH}" | head -n 1
+}
+
+function channel_signer_entries() {
+  local config_json_path="$1"
+
+  jq -r '.channel_group.groups.Application.groups | keys[]' "${config_json_path}" | while IFS= read -r signer_msp; do
+    local org_json signer_domain
+    org_json="$(registry_entry_by_msp "${signer_msp}")"
+
+    if [[ -z "${org_json}" ]]; then
+      infoln "Skipping signer ${signer_msp}; no matching registry entry found"
+      continue
+    fi
+
+    signer_domain="$(echo "${org_json}" | jq -r '.domain')"
+    if ! org_entry_is_usable "${signer_domain}"; then
+      infoln "Skipping stale registry signer ${signer_domain}; admin MSP path is missing"
+      continue
+    fi
+
+    echo "${org_json}"
+  done
+}
+
+function first_channel_signer_entry() {
+  local config_json_path="$1"
+
+  while IFS= read -r org_json; do
+    [[ -z "${org_json}" ]] && continue
+    echo "${org_json}"
+    return 0
+  done < <(channel_signer_entries "${config_json_path}")
+
+  return 1
+}
+
 function ensure_chaincode_package() {
   if [[ -f "${CHAINCODE_PACKAGE_FILE}" ]]; then
     return 0
@@ -331,16 +380,25 @@ function approve_chaincode_for_org() {
   echo "${approve_output}" > "${GENERATED_DIR}/chaincode_approve.log"
 }
 
-function sign_with_current_orgs() {
+function sign_with_channel_orgs() {
+  local config_json_path="$1"
+  local signer_count=0
+
   while IFS= read -r org_json; do
     local signer_msp signer_domain signer_port
+    [[ -z "${org_json}" ]] && continue
     signer_msp="$(echo "${org_json}" | jq -r '.mspId')"
     signer_domain="$(echo "${org_json}" | jq -r '.domain')"
     signer_port="$(echo "${org_json}" | jq -r '.peerPort')"
 
     set_org_context "${signer_msp}" "${signer_domain}" "${signer_port}"
     peer channel signconfigtx -f "${GENERATED_DIR}/org_update_in_envelope.pb"
-  done < <(jq -c '.organizations[] | select(.active == true)' "${REGISTRY_PATH}")
+    signer_count=$((signer_count + 1))
+  done < <(channel_signer_entries "${config_json_path}")
+
+  if [[ ${signer_count} -eq 0 ]]; then
+    fatalln "No usable signer organizations found in live channel config"
+  fi
 }
 
 function update_registry() {
@@ -451,6 +509,14 @@ peer channel fetch config "${GENERATED_DIR}/config_block.pb" -o localhost:7050 -
 configtxlator proto_decode --input "${GENERATED_DIR}/config_block.pb" --type common.Block --output "${GENERATED_DIR}/config_block.json"
 jq .data.data[0].payload.data.config "${GENERATED_DIR}/config_block.json" > "${GENERATED_DIR}/config.json"
 
+if ! FIRST_SIGNER_JSON="$(first_channel_signer_entry "${GENERATED_DIR}/config.json")"; then
+  fatalln "No usable signer organizations found in live channel config"
+fi
+FIRST_SIGNER_DOMAIN="$(echo "${FIRST_SIGNER_JSON}" | jq -r '.domain')"
+FIRST_SIGNER_MSP="$(echo "${FIRST_SIGNER_JSON}" | jq -r '.mspId')"
+FIRST_SIGNER_PORT="$(echo "${FIRST_SIGNER_JSON}" | jq -r '.peerPort')"
+set_org_context "${FIRST_SIGNER_MSP}" "${FIRST_SIGNER_DOMAIN}" "${FIRST_SIGNER_PORT}"
+
 if jq -e --arg mspId "${MSP_ID}" '.channel_group.groups.Application.groups | has($mspId)' "${GENERATED_DIR}/config.json" >/dev/null; then
   infoln "Organization ${MSP_ID} is already part of channel ${CHANNEL_NAME}; skipping config update"
   echo "Organization ${MSP_ID} is already part of channel ${CHANNEL_NAME}" > "${GENERATED_DIR}/channel_update.log"
@@ -467,8 +533,8 @@ else
   echo "{\"payload\":{\"header\":{\"channel_header\":{\"channel_id\":\"${CHANNEL_NAME}\",\"type\":2}},\"data\":{\"config_update\":$(cat "${GENERATED_DIR}/org_update.json")}}}" | jq . > "${GENERATED_DIR}/org_update_in_envelope.json"
   configtxlator proto_encode --input "${GENERATED_DIR}/org_update_in_envelope.json" --type common.Envelope --output "${GENERATED_DIR}/org_update_in_envelope.pb"
 
-  infoln "Collecting channel update signatures from active organizations"
-  sign_with_current_orgs
+  infoln "Collecting channel update signatures from channel member organizations"
+  sign_with_channel_orgs "${GENERATED_DIR}/config.json"
 
   set_org_context "${FIRST_SIGNER_MSP}" "${FIRST_SIGNER_DOMAIN}" "${FIRST_SIGNER_PORT}"
   peer channel update -f "${GENERATED_DIR}/org_update_in_envelope.pb" -c "${CHANNEL_NAME}" -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${ORDERER_CA}" >&"${GENERATED_DIR}/channel_update.log"

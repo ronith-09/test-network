@@ -14,6 +14,7 @@ BFT="$5"
 : ${VERBOSE:="false"}
 : ${BFT:=0}
 : ${SKIP_ANCHOR_PEERS:="true"}
+: ${BASELINE_ORGS:="between"}
 
 : ${CONTAINER_CLI:="docker"}
 if command -v ${CONTAINER_CLI}-compose > /dev/null 2>&1; then
@@ -22,6 +23,19 @@ else
     : ${CONTAINER_CLI_COMPOSE:="${CONTAINER_CLI} compose"}
 fi
 infoln "Using ${CONTAINER_CLI} and ${CONTAINER_CLI_COMPOSE}"
+
+baseline_has_org() {
+  local target="$1"
+  local item=""
+
+  for item in ${BASELINE_ORGS}; do
+    if [ "${item}" = "${target}" ]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
 
 if [ ! -d "channel-artifacts" ]; then
 	mkdir channel-artifacts
@@ -134,12 +148,18 @@ successln "Channel '$CHANNEL_NAME' created"
 ## Join all the peers to the channel
 infoln "Joining Between peer to the channel..."
 joinChannel 1
-infoln "Joining Bank1 peer to the channel..."
-joinChannel 2
-infoln "Joining Bank2 peer to the channel..."
-joinChannel 3
-infoln "Joining BankD peer to the channel..."
-joinChannel 4
+if baseline_has_org bank1; then
+  infoln "Joining Bank1 peer to the channel..."
+  joinChannel 2
+fi
+if baseline_has_org bank2; then
+  infoln "Joining Bank2 peer to the channel..."
+  joinChannel 3
+fi
+if baseline_has_org bankd; then
+  infoln "Joining BankD peer to the channel..."
+  joinChannel 4
+fi
 
 ## Set the anchor peers for each org in the channel
 if [ "${SKIP_ANCHOR_PEERS}" = "true" ]; then
@@ -147,12 +167,18 @@ if [ "${SKIP_ANCHOR_PEERS}" = "true" ]; then
 else
   infoln "Setting anchor peer for Between..."
   setAnchorPeer 1
-  infoln "Setting anchor peer for Bank1..."
-  setAnchorPeer 2
-  infoln "Setting anchor peer for Bank2..."
-  setAnchorPeer 3
-  infoln "Setting anchor peer for BankD..."
-  setAnchorPeer 4
+  if baseline_has_org bank1; then
+    infoln "Setting anchor peer for Bank1..."
+    setAnchorPeer 2
+  fi
+  if baseline_has_org bank2; then
+    infoln "Setting anchor peer for Bank2..."
+    setAnchorPeer 3
+  fi
+  if baseline_has_org bankd; then
+    infoln "Setting anchor peer for BankD..."
+    setAnchorPeer 4
+  fi
 fi
 
 successln "Channel '$CHANNEL_NAME' joined"

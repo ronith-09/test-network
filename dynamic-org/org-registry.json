@@ -41,26 +41,6 @@
       "active": true
     },
     {
-      "key": "hdfc",
-      "displayName": "HDFCIND",
-      "mspId": "HdfcMSP",
-      "domain": "hdfc.example.com",
-      "peerHost": "peer0.hdfc.example.com",
-      "peerPort": 8000,
-      "operationsPort": 9450,
-      "active": true
-    },
-    {
-      "key": "sbi",
-      "displayName": "State Bank Of India",
-      "mspId": "SbiMSP",
-      "domain": "sbi.example.com",
-      "peerHost": "peer0.sbi.example.com",
-      "peerPort": 14051,
-      "operationsPort": 9451,
-      "active": true
-    },
-    {
       "key": "icici",
       "displayName": "ICICI",
       "mspId": "IciciMSP",

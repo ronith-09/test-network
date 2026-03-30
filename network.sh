@@ -28,6 +28,21 @@ trap "popd > /dev/null" EXIT
 
 . scripts/utils.sh
 
+: ${BASELINE_ORGS:="between"}
+
+function baselineHasOrg() {
+  local target="$1"
+  local item=""
+
+  for item in ${BASELINE_ORGS}; do
+    if [ "${item}" = "${target}" ]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 : ${CONTAINER_CLI:="docker"}
 if command -v ${CONTAINER_CLI}-compose > /dev/null 2>&1; then
     : ${CONTAINER_CLI_COMPOSE:="${CONTAINER_CLI}-compose"}
@@ -187,34 +202,40 @@ function createOrgs() {
       fatalln "Failed to generate certificates..."
     fi
 
-    infoln "Creating Bank1Organization Identities"
+    if baselineHasOrg bank1; then
+      infoln "Creating Bank1Organization Identities"
 
-    set -x
-    cryptogen generate --config=./organizations/cryptogen/crypto-config-bank1organization.yaml --output="organizations"
-    res=$?
-    { set +x; } 2>/dev/null
-    if [ $res -ne 0 ]; then
-      fatalln "Failed to generate certificates..."
+      set -x
+      cryptogen generate --config=./organizations/cryptogen/crypto-config-bank1organization.yaml --output="organizations"
+      res=$?
+      { set +x; } 2>/dev/null
+      if [ $res -ne 0 ]; then
+        fatalln "Failed to generate certificates..."
+      fi
     fi
 
-    infoln "Creating Bank2 Identities"
+    if baselineHasOrg bank2; then
+      infoln "Creating Bank2 Identities"
 
-    set -x
-    cryptogen generate --config=./organizations/cryptogen/crypto-config-bank2.yaml --output="organizations"
-    res=$?
-    { set +x; } 2>/dev/null
-    if [ $res -ne 0 ]; then
-      fatalln "Failed to generate certificates..."
+      set -x
+      cryptogen generate --config=./organizations/cryptogen/crypto-config-bank2.yaml --output="organizations"
+      res=$?
+      { set +x; } 2>/dev/null
+      if [ $res -ne 0 ]; then
+        fatalln "Failed to generate certificates..."
+      fi
     fi
 
-    infoln "Creating BankD Identities"
+    if baselineHasOrg bankd; then
+      infoln "Creating BankD Identities"
 
-    set -x
-    cryptogen generate --config=./organizations/cryptogen/crypto-config-bankd.yaml --output="organizations"
-    res=$?
-    { set +x; } 2>/dev/null
-    if [ $res -ne 0 ]; then
-      fatalln "Failed to generate certificates..."
+      set -x
+      cryptogen generate --config=./organizations/cryptogen/crypto-config-bankd.yaml --output="organizations"
+      res=$?
+      { set +x; } 2>/dev/null
+      if [ $res -ne 0 ]; then
+        fatalln "Failed to generate certificates..."
+      fi
     fi
 
   fi

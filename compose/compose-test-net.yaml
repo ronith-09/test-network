@@ -97,6 +97,8 @@ services:
   peer0.bank1organization.example.com:
     container_name: peer0.bank1organization.example.com
     image: hyperledger/fabric-peer:${IMAGE_TAG:-latest}
+    profiles:
+      - bank1
     labels:
       service: hyperledger-fabric
     environment:
@@ -133,6 +135,8 @@ services:
   peer0.bank2.example.com:
     container_name: peer0.bank2.example.com
     image: hyperledger/fabric-peer:${IMAGE_TAG:-latest}
+    profiles:
+      - bank2
     labels:
       service: hyperledger-fabric
     environment:
@@ -169,6 +173,8 @@ services:
   peer0.bankd.example.com:
     container_name: peer0.bankd.example.com
     image: hyperledger/fabric-peer:${IMAGE_TAG:-latest}
+    profiles:
+      - bankd
     labels:
       service: hyperledger-fabric
     environment:

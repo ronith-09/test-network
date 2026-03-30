@@ -25,6 +25,77 @@ CC_VERSION="${CC_VERSION:-1.0}"
 CC_SEQUENCE="${CC_SEQUENCE:-1}"
 CC_LANG="${CC_LANG:-golang}"
 PKG_FILE="${PKG_FILE:-${CC_LABEL}.tar.gz}"
+BASELINE_ORGS="${BASELINE_ORGS:-between}"
+CONFIGTX_FILE="${TEST_NETWORK_DIR}/configtx/configtx.yaml"
+CONFIGTX_BACKUP=""
+
+has_org() {
+  local target="$1"
+  local item=""
+
+  for item in ${BASELINE_ORGS}; do
+    if [[ "${item}" == "${target}" ]]; then
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+restore_runtime_overrides() {
+  if [[ -n "${CONFIGTX_BACKUP}" && -f "${CONFIGTX_BACKUP}" ]]; then
+    mv "${CONFIGTX_BACKUP}" "${CONFIGTX_FILE}"
+  fi
+}
+
+compute_compose_profiles() {
+  local joined=""
+
+  if has_org bank1; then
+    joined="bank1"
+  fi
+  if has_org bank2; then
+    if [[ -n "${joined}" ]]; then
+      joined+=","
+    fi
+    joined+="bank2"
+  fi
+  if has_org bankd; then
+    if [[ -n "${joined}" ]]; then
+      joined+=","
+    fi
+    joined+="bankd"
+  fi
+
+  echo "${joined}"
+}
+
+prepare_configtx_for_baseline() {
+  if [[ "${BASELINE_ORGS}" != "between" ]]; then
+    return 0
+  fi
+
+  CONFIGTX_BACKUP="$(mktemp)"
+  cp "${CONFIGTX_FILE}" "${CONFIGTX_BACKUP}"
+
+  awk '
+    BEGIN { skip_bank_orgs = 0 }
+    skip_bank_orgs {
+      if ($0 ~ /^################################################################################$/) {
+        skip_bank_orgs = 0
+        print
+      }
+      next
+    }
+    /^  - &Bank1Organization$/ { skip_bank_orgs = 1; next }
+    /^        - \*Bank1Organization$/ { next }
+    /^        - \*Bank2Org$/ { next }
+    /^        - \*BankDOrg$/ { next }
+    { print }
+  ' "${CONFIGTX_BACKUP}" > "${CONFIGTX_FILE}"
+}
+
+trap restore_runtime_overrides EXIT
 
 echo "Bringing down any existing network..."
 ./network.sh down || true
@@ -40,13 +111,7 @@ if docker network inspect fabric_test >/dev/null 2>&1; then
   docker network rm fabric_test >/dev/null 2>&1 || true
 fi
 
-for volume_name in \
-  "${COMPOSE_PROJECT_NAME}_orderer.example.com" \
-  "${COMPOSE_PROJECT_NAME}_peer0.betweenorganization.example.com" \
-  "${COMPOSE_PROJECT_NAME}_peer0.bank1organization.example.com" \
-  "${COMPOSE_PROJECT_NAME}_peer0.bank2.example.com" \
-  "${COMPOSE_PROJECT_NAME}_peer0.bankd.example.com"
-do
+for volume_name in "${COMPOSE_PROJECT_NAME}_orderer.example.com" "${COMPOSE_PROJECT_NAME}_peer0.betweenorganization.example.com"; do
   if docker volume inspect "${volume_name}" >/dev/null 2>&1; then
     echo "Removing stale docker volume: ${volume_name}"
     docker volume rm "${volume_name}" >/dev/null 2>&1 || true
@@ -58,7 +123,16 @@ rm -rf organizations/peerOrganizations organizations/ordererOrganizations
 rm -f channel-artifacts/*.block channel-artifacts/*.tx channel-artifacts/*.json channel-artifacts/*.pb
 
 echo "Starting network..."
+export COMPOSE_PROFILES="$(compute_compose_profiles)"
+prepare_configtx_for_baseline
 ./network.sh up -i "${IMAGE_TAG}"
+
+append_peer_args() {
+  local peer_address="$1"
+  local tls_cert="$2"
+
+  COMMIT_PEER_ARGS+=" --peerAddresses ${peer_address} --tlsRootCertFiles ${tls_cert}"
+}
 
 populate_admincerts() {
   local org_domain="$1"
@@ -86,9 +160,15 @@ populate_orderer_admincerts() {
 
 echo "Populating MSP admincerts..."
 populate_admincerts "betweenorganization.example.com" "Admin@betweenorganization.example.com"
-populate_admincerts "bank1organization.example.com" "Admin@bank1organization.example.com"
-populate_admincerts "bank2.example.com" "Admin@bank2.example.com"
-populate_admincerts "bankd.example.com" "Admin@bankd.example.com"
+if has_org bank1; then
+  populate_admincerts "bank1organization.example.com" "Admin@bank1organization.example.com"
+fi
+if has_org bank2; then
+  populate_admincerts "bank2.example.com" "Admin@bank2.example.com"
+fi
+if has_org bankd; then
+  populate_admincerts "bankd.example.com" "Admin@bankd.example.com"
+fi
 populate_orderer_admincerts
 
 echo "Creating channel ${CHANNEL_NAME}..."
@@ -151,7 +231,7 @@ echo "CC Name      : ${CC_NAME}"
 echo "Label        : ${CC_LABEL}"
 echo "Version      : ${CC_VERSION}"
 echo "Sequence     : ${CC_SEQUENCE}"
-echo "Organizations: BetweenMSP, Bank1MSP, Bank2MSP, BankDMSP"
+echo "Organizations: ${BASELINE_ORGS}"
 echo "------------------------------------------------------------"
 
 if [[ ! -d "${CHAINCODE_DIR}" ]]; then
@@ -227,14 +307,20 @@ set_peer_globals() {
 set_peer_globals between
 safe_install "BetweenMSP"
 
-set_peer_globals bank1
-safe_install "Bank1MSP"
+if has_org bank1; then
+  set_peer_globals bank1
+  safe_install "Bank1MSP"
+fi
 
-set_peer_globals bank2
-safe_install "Bank2MSP"
+if has_org bank2; then
+  set_peer_globals bank2
+  safe_install "Bank2MSP"
+fi
 
-set_peer_globals bankd
-safe_install "BankDMSP"
+if has_org bankd; then
+  set_peer_globals bankd
+  safe_install "BankDMSP"
+fi
 
 echo "Extracting Package ID for label: ${CC_LABEL}"
 CC_PACKAGE_ID=$(peer lifecycle chaincode queryinstalled | sed -n "s/Package ID: \(.*\), Label: ${CC_LABEL}/\1/p" | head -n 1)
@@ -304,9 +390,15 @@ approve_for_org() {
 }
 
 approve_for_org between BetweenMSP
-approve_for_org bank1 Bank1MSP
-approve_for_org bank2 Bank2MSP
-approve_for_org bankd BankDMSP
+if has_org bank1; then
+  approve_for_org bank1 Bank1MSP
+fi
+if has_org bank2; then
+  approve_for_org bank2 Bank2MSP
+fi
+if has_org bankd; then
+  approve_for_org bankd BankDMSP
+fi
 
 echo "Checking commit readiness..."
 set_peer_globals between
@@ -319,12 +411,23 @@ run_lifecycle_in_network \
   "checkcommitreadiness --channelID ${CHANNEL_NAME} --name ${CC_NAME} --version ${CC_VERSION} --sequence ${CC_SEQUENCE} --output json"
 
 echo "Committing chaincode definition..."
+COMMIT_PEER_ARGS="--peerAddresses peer0.betweenorganization.example.com:7051 --tlsRootCertFiles ${BETWEEN_TLS/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
+if has_org bank1; then
+  append_peer_args "peer0.bank1organization.example.com:9051" "${BANK1_TLS/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
+fi
+if has_org bank2; then
+  append_peer_args "peer0.bank2.example.com:11051" "${BANK2_TLS/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
+fi
+if has_org bankd; then
+  append_peer_args "peer0.bankd.example.com:12051" "${BANKD_TLS/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
+fi
+
 run_lifecycle_in_network \
   "BetweenMSP" \
   "peer0.betweenorganization.example.com:7051" \
   "${BETWEEN_TLS/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}}" \
   "${BETWEEN_ADMIN/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}}" \
-  "--peerAddresses peer0.betweenorganization.example.com:7051 --tlsRootCertFiles ${BETWEEN_TLS/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}} --peerAddresses peer0.bank1organization.example.com:9051 --tlsRootCertFiles ${BANK1_TLS/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}} --peerAddresses peer0.bank2.example.com:11051 --tlsRootCertFiles ${BANK2_TLS/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}} --peerAddresses peer0.bankd.example.com:12051 --tlsRootCertFiles ${BANKD_TLS/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}}" \
+  "${COMMIT_PEER_ARGS}" \
   "commit -o orderer.example.com:7050 --ordererTLSHostnameOverride orderer.example.com --channelID ${CHANNEL_NAME} --name ${CC_NAME} --version ${CC_VERSION} --sequence ${CC_SEQUENCE} --tls --cafile ${ORDERER_TLS_CA_IN_NETWORK/${TEST_NETWORK_DIR}/${IN_CONTAINER_TEST_NETWORK_DIR}}"
 
 echo "Querying committed chaincode..."
